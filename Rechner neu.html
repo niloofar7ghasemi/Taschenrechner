@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Taschenrechner</title>
+  <style>
+    :root{
+      --bg:#0f1226; --panel:rgba(255,255,255,.08); --text:#eaeaff; --muted:#a7adcb; --accent:#7c5cff; --accent-2:#56d1ff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100vh; display:grid; place-items:center; color:var(--text);
+      background: radial-gradient(60% 60% at 30% 20%, #1a1f4e 0%, rgba(26,31,78,0) 60%),
+                  radial-gradient(40% 40% at 80% 80%, #0e4b6e 0%, rgba(14,75,110,0) 60%),
+                  linear-gradient(180deg, #0b0e22, #0f1226);
+      font-family: ui-rounded, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+    .calculator{
+      width:min(92vw, 380px); padding:16px; border-radius:22px; position:relative;
+      background:var(--panel); border:1px solid rgba(255,255,255,.12);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 20px 50px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.06);
+    }
+    .brand{position:absolute; inset-inline-start:16px; inset-block-start:12px; color:var(--muted); font-size:.9rem}
+    .display{
+      direction:ltr; text-align:end; padding:18px 16px; margin:8px 0 14px; border-radius:16px;
+      background:rgba(0,0,0,.25); border:1px solid rgba(255,255,255,.08);
+      box-shadow: inset 0 2px 10px rgba(0,0,0,.35);
+      font-weight:700; letter-spacing:.5px;
+      font-size: clamp(26px, 6vw, 42px);
+      min-height:72px; display:flex; align-items:flex-end; justify-content:flex-end;
+      overflow:hidden; user-select:none;
+    }
+    .keys{ display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; }
+    button.key{
+      border:0; padding:16px 10px; border-radius:16px; cursor:pointer; font-weight:600; font-size:1.05rem;
+      color:var(--text); background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+      border:1px solid rgba(255,255,255,.10); box-shadow: 0 6px 14px rgba(0,0,0,.35);
+      transition: transform .06s ease, box-shadow .2s ease, background .2s ease;
+    }
+    button.key:active{ transform: translateY(1px); box-shadow: 0 3px 8px rgba(0,0,0,.35); }
+    button.key:focus-visible{ outline:2px solid var(--accent-2); outline-offset:2px }
+    .key.op{ background:linear-gradient(180deg, rgba(124,92,255,.25), rgba(124,92,255,.15)); border-color: rgba(124,92,255,.45); }
+    .key.func{ color:#d5dbff; }
+    .key.equal{ background: linear-gradient(180deg, var(--accent), #5a3dff); border-color: rgba(124,92,255,.8); }
+    .key.equal:hover{ filter:brightness(1.05) }
+    .span-2{ grid-column: span 2; }
+    .footer{margin-top:12px; text-align:center; color:var(--muted); font-size:.85rem}
+  </style>
+</head>
+<body>
+  <main class="calculator" role="application" aria-label="Taschenrechner">
+    <div class="brand">Taschenrechner</div>
+    <div id="display" class="display" aria-live="polite" aria-atomic="true">0</div>
+    <div class="keys" id="keys">
+      <button class="key func" data-action="clear" title="Alles löschen">AC</button>
+      <button class="key func" data-action="backspace" title="Letzte Zahl löschen">⌫</button>
+      <button class="key func" data-action="percent" title="Prozent">%</button>
+      <button class="key op" data-action="operator" data-operator="÷" title="Teilen">÷</button>
+      <button class="key" data-digit="7">7</button>
+      <button class="key" data-digit="8">8</button>
+      <button class="key" data-digit="9">9</button>
+      <button class="key op" data-action="operator" data-operator="×" title="Mal">×</button>
+      <button class="key" data-digit="4">4</button>
+      <button class="key" data-digit="5">5</button>
+      <button class="key" data-digit="6">6</button>
+      <button class="key op" data-action="operator" data-operator="−" title="Minus">−</button>
+      <button class="key" data-digit="1">1</button>
+      <button class="key" data-digit="2">2</button>
+      <button class="key" data-digit="3">3</button>
+      <button class="key op" data-action="operator" data-operator="+" title="Plus">+</button>
+      <button class="key span-2" data-digit="0">0</button>
+      <button class="key" data-action="decimal" title="Komma">.</button>
+      <button class="key equal" data-action="equals" title="Berechnen">=</button>
+    </div>
+    <div class="footer">Tastatur geht auch: 0–9, + - * / . , Enter, Backspace</div>
+  </main>
+  <script>
+    (function(){
+      const display = document.getElementById('display');
+      const keys = document.getElementById('keys');
+      const state = {
+        displayValue: '0',
+        firstOperand: null,
+        operator: null,
+        waitingForSecond: false
+      };
+      function updateDisplay(){
+        display.textContent = state.displayValue;
+      }
+      function clearAll(){
+        state.displayValue = '0';
+        state.firstOperand = null;
+        state.operator = null;
+        state.waitingForSecond = false;
+        updateDisplay();
+      }
+      function inputDigit(digit){
+        if (state.waitingForSecond){
+          state.displayValue = String(digit);
+          state.waitingForSecond = false;
+        } else {
+          if (state.displayValue === '0'){
+            state.displayValue = String(digit);
+          } else if (state.displayValue.length < 16){
+            state.displayValue += String(digit);
+          }
+        }
+        updateDisplay();
+      }
+      function inputDecimal(){
+        if (state.waitingForSecond){
+          state.displayValue = '0.';
+          state.waitingForSecond = false;
+        } else if (!state.displayValue.includes('.')){
+          state.displayValue += '.';
+        }
+        updateDisplay();
+      }
+      function toNumber(v){
+        const n = parseFloat(v);
+        return Number.isFinite(n) ? n : 0;
+      }
+      function roundSmart(n){
+        return Math.round((n + Number.EPSILON) * 1e12) / 1e12;
+      }
+      function calculate(a, b, op){
+        switch(op){
+          case '+': return roundSmart(a + b);
+          case '−': return roundSmart(a - b);
+          case '×': return roundSmart(a * b);
+          case '÷': return b === 0 ? 'Fehler' : roundSmart(a / b);
+          default: return b;
+        }
+      }
+      function handleOperator(nextOp){
+        const inputValue = toNumber(state.displayValue);
+        if (state.firstOperand === null){
+          state.firstOperand = inputValue;
+        } else if (state.operator && !state.waitingForSecond){
+          const result = calculate(state.firstOperand, inputValue, state.operator);
+          state.displayValue = String(result);
+          state.firstOperand = (result === 'Fehler') ? null : toNumber(result);
+        }
+        state.operator = nextOp;
+        state.waitingForSecond = true;
+        updateDisplay();
+      }
+      function handlePercent(){
+        const current = toNumber(state.displayValue);
+        state.displayValue = String(roundSmart(current / 100));
+        updateDisplay();
+      }
+      function handleBackspace(){
+        if (state.waitingForSecond) return;
+        if (state.displayValue.length <= 1){
+          state.displayValue = '0';
+        } else {
+          state.displayValue = state.displayValue.slice(0, -1);
+        }
+        updateDisplay();
+      }
+      function handleEquals(){
+        if (state.operator === null || state.waitingForSecond) return;
+        const a = state.firstOperand;
+        const b = toNumber(state.displayValue);
+        const result = calculate(a, b, state.operator);
+        state.displayValue = String(result);
+        state.firstOperand = null;
+        state.operator = null;
+        state.waitingForSecond = false;
+        updateDisplay();
+      }
+      keys.addEventListener('click', (e)=>{
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const digit = btn.getAttribute('data-digit');
+        const action = btn.getAttribute('data-action');
+        if (digit !== null){ inputDigit(digit); return; }
+        if (!action) return;
+        switch(action){
+          case 'decimal': inputDecimal(); break;
+          case 'clear': clearAll(); break;
+          case 'backspace': handleBackspace(); break;
+          case 'percent': handlePercent(); break;
+          case 'operator': handleOperator(btn.getAttribute('data-operator')); break;
+          case 'equals': handleEquals(); break;
+        }
+      });
+      const keyMap = {
+        '/':'÷', '*':'×', '+':'+', '-':'−'
+      };
+      window.addEventListener('keydown', (e)=>{
+        const { key } = e;
+        if (/^[0-9]$/.test(key)) { inputDigit(key); return; }
+        if (key === '.' || key === ',') { inputDecimal(); return; }
+        if (key in keyMap) { handleOperator(keyMap[key]); return; }
+        if (key === 'Enter' || key === '=') { e.preventDefault(); handleEquals(); return; }
+        if (key === 'Backspace') { handleBackspace(); return; }
+        if (key === 'Delete') { clearAll(); return; }
+        if (key === '%') { handlePercent(); return; }
+      });
+      updateDisplay();
+    })();
+  </script>
+</body>
+</html>
