@@ -2,10 +2,8 @@
   const display = document.getElementById('display');
   const keys = document.getElementById('keys');
   const state = { displayValue: '0', firstOperand: null, operator: null, waitingForSecond: false };
-
   function updateDisplay(){ display.textContent = state.displayValue; }
   function clearAll(){ state.displayValue='0'; state.firstOperand=null; state.operator=null; state.waitingForSecond=false; updateDisplay(); }
-
   function inputDigit(d){
     if (state.waitingForSecond){ state.displayValue=String(d); state.waitingForSecond=false; }
     else {
@@ -53,7 +51,6 @@
     const result=calculate(a,b,state.operator);
     state.displayValue=String(result); state.firstOperand=null; state.operator=null; state.waitingForSecond=false; updateDisplay();
   }
-
   keys.addEventListener('click',(e)=>{
     const btn=e.target.closest('button'); if(!btn) return;
     const digit=btn.getAttribute('data-digit'); const action=btn.getAttribute('data-action');
@@ -68,7 +65,6 @@
       case 'equals': handleEquals(); break;
     }
   });
-
   const keyMap={ '/':'÷','*':'×','+':'+','-':'−' };
   window.addEventListener('keydown',(e)=>{
     const { key } = e;
@@ -80,6 +76,5 @@
     if (key==='Delete') { clearAll(); return; }
     if (key==='%') { handlePercent(); return; }
   });
-
   updateDisplay();
 })();
